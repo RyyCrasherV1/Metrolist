@@ -1,0 +1,40 @@
+name: Release Stable APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: Metrolist-UniversalFoss
+          path: release_files/
+
+      - name: Generate release notes
+        run: |
+          cat > release_notes.md << EOF
+          Release of version ${GITHUB_REF##*/}
+          
+          $(git log $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~10)..HEAD --pretty=format:"- %s" --no-merges | head -10 || echo "- Initial release")
+          EOF
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF##*/}" \
+            --title "${GITHUB_REF##*/}" \
+            --notes-file release_notes.md \
+            --latest \
+            release_files/*.apk
